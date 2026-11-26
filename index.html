@@ -67,6 +67,9 @@ header{background:#fff;position:sticky;top:0;z-index:30;box-shadow:0 1px 0 var(-
 .rt{font-size:12px;color:var(--mut)}.rt b{color:#f5a623}
 .add{margin-top:auto;border:1.5px solid var(--or);background:#fff;color:var(--or-d);border-radius:8px;padding:8px;font-weight:700}
 .add:hover{background:var(--or);color:#fff}
+.tile{overflow:hidden}.tile img,.ci .t img{width:100%;height:100%;object-fit:cover}.ci .t{overflow:hidden}
+.box select{width:100%;padding:11px 12px;border:1px solid #cfd3da;border-radius:8px;background:#fff}
+.pv{width:100%;max-height:170px;object-fit:cover;border-radius:8px;margin-top:8px;display:none}
 .empty{padding:40px;text-align:center;color:var(--mut)}
 footer{background:#1f2430;color:#b9bec9;margin-top:40px;padding:36px 0 20px;font-size:14px}
 .fg{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:24px}
@@ -122,6 +125,7 @@ label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
   </div>
   <div class="acts">
     <button class="ab" id="userBtn" onclick="userClick()"><span>👤</span><span class="lb" id="userLb">Log in</span></button>
+    <button class="ab" onclick="openAdd()"><span>➕</span><span class="lb">Add product</span></button>
     <button class="ab" onclick="openCart()" aria-label="Open cart"><span>🛒</span><span class="lb">Cart</span><span class="badge" id="cnt">0</span></button>
   </div>
 </div></header>
@@ -175,6 +179,19 @@ label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
   <button class="pri" id="authB" onclick="auth()">Log in</button>
 </div></div>
 
+<div class="ov" id="addOv" role="dialog" aria-modal="true" aria-labelledby="addT"><div class="box">
+  <button class="x" onclick="closeOv('addOv')" aria-label="Close">✕</button>
+  <h2 id="addT">Add a product</h2><p class="sub">It will appear in the store right away.</p>
+  <label for="pn">Product name</label><input id="pn" maxlength="60">
+  <label for="pc">Category</label><select id="pc"></select>
+  <label for="pp">Price (Rs.)</label><input id="pp" type="number" min="1" inputmode="numeric">
+  <label for="po">Original price (Rs., optional)</label><input id="po" type="number" min="1" inputmode="numeric">
+  <label for="pi">Product image</label><input id="pi" type="file" accept="image/*" onchange="pickImg(event)">
+  <img class="pv" id="pv" alt="Selected product preview">
+  <div class="err" id="addE" role="alert"></div>
+  <button class="pri" onclick="addProduct()">Add product</button>
+</div></div>
+
 <div class="ov" id="coOv" role="dialog" aria-modal="true" aria-labelledby="coT"><div class="box" id="coBox"></div></div>
 
 <aside class="drawer" id="drawer" aria-label="Shopping cart">
@@ -185,7 +202,7 @@ label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-const P=[
+const BASE=[
 [1,"Wireless Earbuds Pro",2499,3999,"Electronics","🎧",4.5,812],[2,"Smart Watch Series 5",4999,7999,"Electronics","⌚",4.3,540],
 [3,"Portable Bluetooth Speaker",3200,4500,"Electronics","🔊",4.6,390],[4,"Android Smartphone 128GB",35999,42999,"Electronics","📱",4.4,1204],
 [5,"Men’s Cotton T-Shirt",999,1499,"Fashion","👕",4.2,2310],[6,"Women’s Summer Dress",2199,3299,"Fashion","👗",4.5,876],
@@ -193,22 +210,26 @@ const P=[
 [9,"Countertop Blender",5200,6800,"Home","🍹",4.3,298],[10,"LED Table Lamp",1200,1800,"Home","💡",4.1,417],
 [11,"Cushion Cover Set",1500,2200,"Home","🛋️",4.0,233],[12,"Hydrating Face Cream",750,1100,"Beauty","🧴",4.6,1980],
 [13,"Eau de Parfum 100ml",2800,3900,"Beauty","🌸",4.5,744],[14,"Bestselling Novel",600,900,"Books","📚",4.8,3120],
-[15,"Match Football",1300,1900,"Sports","⚽",4.3,455],[16,"Cricket Bat",3900,5200,"Sports","🏏",4.6,389]];
+[15,"Match Football",1300,1900,"Sports","⚽",4.3,455],[16,"Cricket Bat",3900,5200,"Sports","🏏",4.6,389],
+[17,"Makeup Kit Collection",4999,6999,"Beauty","💄",4.8,256,"makeup-kit.jpg"]];
 const ICON={All:"🛍️",Electronics:"💻",Fashion:"👕",Home:"🏠",Beauty:"💄",Books:"📖",Sports:"⚽"};
 const TILE={Electronics:"#e8f0fe",Fashion:"#fdeaf1",Home:"#fff4e0",Beauty:"#f3e9fb",Books:"#e6f6ec",Sports:"#e3f4f7"};
-const CATS=["All",...new Set(P.map(p=>p[4]))];
+const CATS=["All",...new Set(BASE.map(p=>p[4]))];
 const SL=[{t:"Mega sale, up to 40% off",s:"Electronics, fashion and home essentials at lower prices.",bg:"linear-gradient(120deg,#f85606,#ff8a3d)",e:"🛍️",c:"All"},
 {t:"Upgrade your tech",s:"Earbuds, watches and phones with free delivery over Rs. 3,000.",bg:"linear-gradient(120deg,#1f3a8a,#3b82f6)",e:"🎧",c:"Electronics"},
 {t:"New season fashion",s:"Fresh styles for everyday wear.",bg:"linear-gradient(120deg,#9d174d,#ec4899)",e:"👗",c:"Fashion"}];
 const g=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
 const s=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 let cat="All",cart=g("daraz_cart"),user=g("daraz_currentUser"),signup=false,si=0;
+const P=BASE.concat(Array.isArray(g("daraz_products"))?g("daraz_products"):[]);
 if(!Array.isArray(cart))cart=[];
+cart=cart.filter(c=>find(c.id));
 const $=id=>document.getElementById(id);
 const rs=n=>"Rs. "+n.toLocaleString("en-US");
 const find=id=>P.find(p=>p[0]===id);
-const cardH=p=>`<article class="card"><div class="tile" style="background:${TILE[p[4]]}"><span class="off">-${Math.round((1-p[2]/p[3])*100)}%</span>${p[5]}</div>
-<div class="info"><h3>${p[1]}</h3><div class="pr">${rs(p[2])}<s>${rs(p[3])}</s></div><div class="rt"><b>★</b> ${p[6]} (${p[7].toLocaleString("en-US")})</div>
+const pic=p=>p[8]?`<img src="${p[8]}" alt="${p[1]}">`:p[5];
+const cardH=p=>`<article class="card"><div class="tile" style="background:${TILE[p[4]]}">${p[3]>p[2]?`<span class="off">-${Math.round((1-p[2]/p[3])*100)}%</span>`:""}${pic(p)}</div>
+<div class="info"><h3>${p[1]}</h3><div class="pr">${rs(p[2])}${p[3]>p[2]?`<s>${rs(p[3])}</s>`:""}</div><div class="rt">${p[7]?`<b>★</b> ${p[6]} (${p[7].toLocaleString("en-US")})`:"New arrival"}</div>
 <button class="add" onclick="addCart(${p[0]})">Add to cart</button></div></article>`;
 function draw(){
   const q=$("q").value.trim().toLowerCase(),so=$("sort").value;
@@ -234,7 +255,7 @@ function addCart(id){const i=cart.find(c=>c.id===id);if(i)i.qty++;else cart.push
 function chg(id,d){const i=cart.find(c=>c.id===id);i.qty+=d;if(i.qty<=0)cart=cart.filter(c=>c.id!==id);saveCart()}
 function totals(){const sub=cart.reduce((a,c)=>a+find(c.id)[2]*c.qty,0),ship=sub===0||sub>=3000?0:150;return{sub,ship,tot:sub+ship}}
 function drawCart(){
-  $("dl").innerHTML=cart.length?cart.map(c=>{const p=find(c.id);return `<div class="ci"><div class="t" style="background:${TILE[p[4]]}">${p[5]}</div><div class="n">${p[1]}<small>${rs(p[2]*c.qty)}</small></div><div class="q"><button onclick="chg(${p[0]},-1)" aria-label="Decrease quantity">−</button><span>${c.qty}</span><button onclick="chg(${p[0]},1)" aria-label="Increase quantity">+</button></div></div>`}).join(""):'<div class="empty">Your cart is empty. Add a product to get started.</div>';
+  $("dl").innerHTML=cart.length?cart.map(c=>{const p=find(c.id);return `<div class="ci"><div class="t" style="background:${TILE[p[4]]}">${pic(p)}</div><div class="n">${p[1]}<small>${rs(p[2]*c.qty)}</small></div><div class="q"><button onclick="chg(${p[0]},-1)" aria-label="Decrease quantity">−</button><span>${c.qty}</span><button onclick="chg(${p[0]},1)" aria-label="Increase quantity">+</button></div></div>`}).join(""):'<div class="empty">Your cart is empty. Add a product to get started.</div>';
   const t=totals();
   $("df").innerHTML=cart.length?`<div class="row"><span>Subtotal</span><span>${rs(t.sub)}</span></div><div class="row"><span>Delivery</span><span>${t.ship?rs(t.ship):"Free"}</span></div><div class="row t"><span>Total</span><span>${rs(t.tot)}</span></div><button class="pri" onclick="checkout()">Proceed to checkout</button>`:"";
 }
@@ -279,8 +300,30 @@ function place(){
   const id="DZ"+Math.floor(100000+Math.random()*900000),t=totals();cart=[];saveCart();
   $("coBox").innerHTML=`<div class="done"><i>✅</i><h2>Order placed</h2><p class="sub">Thank you, ${user.name.split(" ")[0]}. Your order number is <b>${id}</b>. Pay ${rs(t.tot)} on delivery.</p><button class="pri" onclick="closeOv('coOv')">Continue shopping</button></div>`;
 }
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeOv("authOv");closeOv("coOv");closeCart()}});
+let newImg="";
+function openAdd(){
+  if(!user){setMode(false,"Log in to add products.");openOv("authOv");return}
+  ["pn","pp","po","pi"].forEach(i=>$(i).value="");newImg="";$("pv").style.display="none";$("addE").textContent="";openOv("addOv");
+}
+function pickImg(e){
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,700/Math.max(im.width,im.height)),c=document.createElement("canvas");
+    c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+    newImg=c.toDataURL("image/jpeg",.8);$("pv").src=newImg;$("pv").style.display="block"};im.src=r.result};r.readAsDataURL(f);
+}
+function addProduct(){
+  const nm=$("pn").value.replace(/[<>&"']/g,"").trim(),pr=Math.round(+$("pp").value),po=Math.round(+$("po").value)||pr,E=$("addE");
+  if(!nm){E.textContent="Enter the product name.";return}
+  if(!(pr>0)){E.textContent="Enter a valid price.";return}
+  if(po<pr){E.textContent="Original price must be higher than the price.";return}
+  if(!newImg){E.textContent="Choose a product image.";return}
+  const list=g("daraz_products")||[],item=[Date.now(),nm,pr,po,$("pc").value,"🛍️",0,0,newImg];list.push(item);
+  try{localStorage.setItem("daraz_products",JSON.stringify(list))}catch(x){E.textContent="Could not save. Try a smaller image.";return}
+  P.push(item);cat="All";draw();closeOv("addOv");toast("Product added");$("shop").scrollIntoView({behavior:"smooth"});
+}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeOv("authOv");closeOv("coOv");closeOv("addOv");closeCart()}});
 $("flash").innerHTML=[...P].sort((a,b)=>(b[3]-b[2])/b[3]-(a[3]-a[2])/a[3]).slice(0,6).map(cardH).join("");
+$("pc").innerHTML=CATS.slice(1).map(c=>`<option>${c}</option>`).join("");
 draw();slides();paintUser();saveCart();tick();setInterval(tick,1000);
 if(!matchMedia("(prefers-reduced-motion:reduce)").matches)setInterval(()=>{si=(si+1)%SL.length;slides()},5000);
 </script>
